@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Verificador de Precios - t.point</title>
+    <meta name="description" content="Verificador de precios - t.point.">
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+    <input type="text" id="search" autofocus placeholder="Introduce el ID" />
+
+    <div id="main" class="visible">
+        <div class="box Desc">
+			<p id="Descripcion" style="margin:25px"></p>
+		</div>
+        <div id="PrecioUnit" class="box Precio"></div>
+        <div id="pie" class="box Oferta">
+            <div id="Oferta"></div>
+        </div>
+    </div>
+
+    <!-- Protector de pantalla -->
+    <div id="protector-pantalla">
+        <img src="img/protector.jpg" alt="Protector de pantalla">
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var inputSearch = document.getElementById('search');
+            var productos = [];
+            var protectorPantalla = document.getElementById('protector-pantalla');
+            var timeoutProtector;
+            var tiempoInactividad = 10000; // Valor por defecto de 10 segundos
+            var ipServidor = ''; // IP dinámica cargada desde el archivo
+            var puertoServidor = ''; // Puerto dinámico cargado desde el archivo
+
+            // Configuración: nombre de la columna del identificador en el CSV
+            var idColumn = "Codigo_Barra";
+
+            // Configuración: mapea las columnas del CSV a los elementos del HTML  ( CSV - HTML )
+            var columnMapping = {
+                Descripcion: 'Descripcion',
+                Precio: 'PrecioUnit',
+                Precio_Oferta: 'Oferta'
+            };
+
+            // Función para cargar la IP y el puerto del servidor
+            function cargarConfiguracionIP(callback) {
+                var xhrConfig = new XMLHttpRequest();
+                xhrConfig.open('GET', 'configuracion/ip_config.txt', true);
+                xhrConfig.onload = function () {
+                    if (xhrConfig.status === 200) {
+                        var contenido = xhrConfig.responseText.trim();
+                        var partes = contenido.split(':');
+                        if (partes.length === 2) {
+                            ipServidor = partes[0];
+                            puertoServidor = partes[1];
+                            console.log('IP y puerto configurados desde archivo:', ipServidor, puertoServidor);
+                            callback();
+                        } else {
+                            console.error('El archivo de configuración no contiene un formato válido (IP:PUERTO).');
+                        }
+                    } else {
+                        console.error('No se pudo cargar el archivo de configuración de la IP.');
+                    }
+                };
+                xhrConfig.send();
+            }
+
+            // Llama a cargar configuración al inicio
+            cargarConfiguracionIP(cargarProductos);
+
+            // Función para cargar productos desde el servidor usando la IP configurada
+            function cargarProductos() {
+                if (!ipServidor || !puertoServidor) {
+                    console.error('La IP o el puerto del servidor no están configurados. No se pueden cargar los productos.');
+                    return;
+                }
+                var xhr = new XMLHttpRequest();
+                // xhr.open('GET', `http://${ipServidor}:${puertoServidor}/Articulos.CSV`, true);
+                xhr.open('GET', 'http://' + ipServidor + ':' + puertoServidor + '/Articulos.CSV', true);
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        productos = parseCSV(xhr.responseText);
+                        console.log('Productos cargados:', productos);
+                    } else {
+                        console.error('Error al cargar el archivo CSV.');
+                        alert('No se pudo cargar el archivo CSV.');
+                    }
+                };
+                xhr.send();
+            }
+
+            // Función para procesar el CSV
+            function parseCSV(csvContent) {
+                var rows = csvContent.trim().split('\n');
+                var headers = rows[0].split(';'); // Cambiado a delimitador ";"
+                var data = [];
+
+                for (var i = 1; i < rows.length; i++) {
+                    var values = rows[i].split(';'); // Cambiado a delimitador ";"
+                    if (values.length === headers.length) {
+                        var item = {};
+                        headers.forEach(function (header, index) {
+                            item[header.trim()] = values[index].trim();
+                        });
+                        data.push(item);
+                    }
+                }
+                return data;
+            }
+
+            // Buscar producto por identificador dinámico
+            inputSearch.addEventListener('keydown', function (event) {
+                if (event.keyCode === 13) {
+                    console.log('Búsqueda iniciada.');
+
+                    var searchTerm = inputSearch.value.trim();
+                    if (!searchTerm) {
+                        console.warn('El identificador está vacío.');
+                        alert('Por favor, introduce un identificador.');
+                        return;
+                    }
+
+                    var result = null;
+                    for (var i = 0; i < productos.length; i++) {
+                        if (productos[i][idColumn] === searchTerm) {
+                            result = productos[i];
+                            break;
+                        }
+                    }
+
+                    if (result) {
+                        console.log('Producto encontrado:', result);
+                        for (var csvColumn in columnMapping) {
+                            if (columnMapping.hasOwnProperty(csvColumn)) {
+                                var htmlId = columnMapping[csvColumn];
+                                var value = result[csvColumn] || '';
+                                var element = document.getElementById(htmlId);
+                                if (element) {
+                                    // Formatear precio si es necesario
+                                    if (htmlId === 'PrecioUnit') {
+                                        value = formatCurrency(value);
+                                    }
+                                    element.textContent = value;
+                                    // console.log(`Actualizado campo ${htmlId} con valor:`, value);
+									console.log('Actualizado campo ' + htmlId + ' con valor:', value);
+
+                                }
+                            }
+                        }
+                    } else {
+                        console.warn('Producto no encontrado para el identificador:', searchTerm);
+                        for (var csvColumn in columnMapping) {
+                            if (columnMapping.hasOwnProperty(csvColumn)) {
+                                var htmlId = columnMapping[csvColumn];
+                                var element = document.getElementById(htmlId);
+                                if (element) {
+                                    element.textContent = csvColumn === "Descripcion" 
+                                        ? "Producto no encontrado" 
+                                        : ""; // Borra los demás datos
+                                    // console.log(`Actualizado campo ${htmlId} con valor:`, element.textContent);
+									console.log('Actualizado campo ' + htmlId + ' con valor:', element.textContent);
+
+                                }
+                            }
+                        }
+                    }
+
+                    // Limpia el campo de búsqueda
+                    inputSearch.value = "";
+
+                    resetProtectorTimeout();
+                }
+            });
+
+            // Función para formatear el precio como moneda
+            function formatCurrency(value) {
+                var number = parseFloat(value);
+                if (isNaN(number)) {
+                    return value; // Devuelve el valor original si no es un número válido
+                }
+                return new Intl.NumberFormat('es-AR', {
+                    style: 'currency',
+                    currency: 'ARS',
+                    minimumFractionDigits: 2
+                }).format(number);
+            }
+
+            // Función para iniciar el protector de pantalla
+            function mostrarProtector() {
+                protectorPantalla.style.display = 'flex';
+            }
+
+            // Función para ocultar el protector de pantalla
+            function ocultarProtector() {
+                protectorPantalla.style.display = 'none';
+            }
+
+            // Reiniciar el temporizador del protector de pantalla
+            function resetProtectorTimeout() {
+                ocultarProtector();
+                clearTimeout(timeoutProtector);
+                timeoutProtector = setTimeout(mostrarProtector, tiempoInactividad);
+            }
+
+            // Escucha cualquier actividad en la página
+            document.addEventListener('mousemove', resetProtectorTimeout);
+            document.addEventListener('keydown', resetProtectorTimeout);
+
+            // Inicia el temporizador del protector al cargar
+            resetProtectorTimeout();
+        });
+    </script>
+</body>
+</html>
