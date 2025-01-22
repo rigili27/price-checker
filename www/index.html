@@ -5,6 +5,7 @@
     <title>Verificador de Precios - t.point</title>
     <meta name="description" content="Verificador de precios - t.point.">
     <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="css/tailwild.css">
 </head>
 <body>
     <input type="text" id="search" autofocus placeholder="Introduce el ID" />
@@ -44,6 +45,27 @@
                 Precio_Oferta: 'Oferta'
             };
 
+            // Función para cargar el archivo de configuración del tiempo
+            function cargarConfiguracionTiempo() {
+                var xhrConfig = new XMLHttpRequest();
+                xhrConfig.open('GET', 'configuracion/tiempo_config.txt', true);
+                xhrConfig.onload = function () {
+                    if (xhrConfig.status === 200) {
+                        var contenido = xhrConfig.responseText.trim();
+                        var tiempo = parseInt(contenido, 10);
+                        if (!isNaN(tiempo) && tiempo > 0) {
+                            tiempoInactividad = tiempo * 1000; // Convertir a milisegundos
+                            console.log('Tiempo configurado desde archivo:', tiempoInactividad, 'ms');
+                        } else {
+                            console.warn('El archivo de configuración no contiene un tiempo válido. Usando el valor por defecto.');
+                        }
+                    } else {
+                        console.error('No se pudo cargar el archivo de configuración del tiempo.');
+                    }
+                };
+                xhrConfig.send();
+            }
+
             // Función para cargar la IP y el puerto del servidor
             function cargarConfiguracionIP(callback) {
                 var xhrConfig = new XMLHttpRequest();
@@ -68,6 +90,7 @@
             }
 
             // Llama a cargar configuración al inicio
+            cargarConfiguracionTiempo();
             cargarConfiguracionIP(cargarProductos);
 
             // Función para cargar productos desde el servidor usando la IP configurada
