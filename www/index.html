@@ -233,6 +233,10 @@
 
             // Inicia el temporizador del protector al cargar
             resetProtectorTimeout();
+
+// Recargar productos automáticamente cada 30 segundos (30000 ms)
+setInterval(cargarProductos, 30000);
+
         });
     </script>
 </body>
